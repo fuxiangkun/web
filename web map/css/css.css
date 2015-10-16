@@ -1,0 +1,209 @@
+
+
+body{ font-family: arial, 宋体, serif;}
+div#head {
+background-image:url(../head.gif);
+width:980px;
+height:140px
+}
+div#middle {
+
+width:980px;
+height:600px;
+
+}
+div#last {
+background-image:url(../last.jpg);
+width:980px;
+height:150px
+}
+div#menu 
+{
+
+background-color: #eeeeee;
+width:980px;
+height:38px
+}
+div#search
+{
+    float:right;
+   margin-right:30px;
+   margin-top:5px;
+   
+    
+    }
+ input
+ {
+     height:30px;
+     }
+#print
+{
+    float:left;
+    height:40px;
+    
+    }
+.esriPrint
+{
+    margin:0px!important;
+     padding:0px!important;
+    }
+.esriPrintout
+{
+    margin-top:5px;
+    padding:2px 3px;
+    background-color:#66ffff;
+    border:1px solid black;
+    border-radius:10px;
+    text-decoration:none;
+    color: Red;}
+        
+div#map {
+background-color: #ffffdd;
+width:70%;
+height:600px;
+float:left;
+padding:0px;
+text-align:left;
+z-index:10;
+}
+div#scalebar
+{
+    position:relative;
+    top:92%;
+    left:10px;
+    z-index:99;
+    }
+
+div#info {
+
+width:30%;
+height:600px;
+float:right
+}
+#img {
+background-color: white;
+width:240px;
+height:180px;
+float:top;
+margin-top:10px;
+}
+#pic
+{
+    width:100%;
+    height:100%;
+    }
+#text {
+background-color: white;
+width:240px;
+height:350px;
+float:top;
+margin-top:10px;
+text-align:left;
+padding:15px;
+font-size:20px;
+overflow:scroll;
+}
+div#mapof {
+font-weight:bold;
+padding-top:100px;
+float:right;
+text-align:right;
+}
+span
+{
+    white-space:normal;
+    word-wrap:break-word;
+    word-break:break-all;
+    overflow:auto;
+    width:100px;}
+#weather
+{
+    position:fixed;
+    right:0px;
+    top:300px;
+  
+    }
+#legendDiv
+{
+    position:fixed!important;
+
+    top:200px;
+    left:20px;
+    }
+#gotoTop
+{
+    position:fixed;
+    right:50px;
+    bottom:50px;
+    width:50px;
+    height:50px;
+    background-color:#33ffff;
+    text-align:center;
+    line-height:50px;
+    -moz-border-radius:25px;  
+    -webkit-border-radius:25px;  
+    border-radius:25px;  
+    }
+a
+{
+    display:block;
+    text-decoration: none;
+    }
+#myContent
+{
+    position: fixed;
+    background-color:White;
+    top:90px;
+    right:420px;
+
+    }
+#myContent ul
+{
+
+    overflow:scroll;
+    max-height:300px;
+
+    }
+#myContent li
+{
+    list-style-type:none;
+    border:1px solid black;
+    background: -moz-linear-gradient(#aaaaaa, #ffffff);
+    background: -ms-linear-gradient(#aaaaaa, #ffffff);
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0%, #aaaaaa), color-stop(100%, #ffffff));
+    background: -webkit-linear-gradient(#aaaaaa, #ffffff);
+    background: -o-linear-gradient(#aaaaaa, #ffffff);
+    filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#aaaaaa', endColorstr='#ffffff');
+    -ms-filter: "progid:DXImageTransform.Microsoft.gradient(startColorstr='#aaaaaa', endColorstr='#ffffff')";
+    background: linear-gradient(#aaaaaa, #ffffff);
+
+    height:30px;
+    line-height:30px;
+    padding:2px 5px;
+
+   }
+#myContent a
+{
+    height:28px;
+    display:block;
+    text-decoration: none;
+    text-transform: uppercase;
+    }
+#myContent li:hover
+{
+    background-color: #1c1c1c;
+    background: -moz-linear-gradient(#1c1c1c, #1b1b1b);
+    background: -ms-linear-gradient(#1c1c1c, #1b1b1b);
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0%, #1c1c1c), color-stop(100%, #1b1b1b));
+    background: -webkit-linear-gradient(#1c1c1c, #1b1b1b);
+    background: -o-linear-gradient(#1c1c1c, #1b1b1b);
+    filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#1c1c1c', endColorstr='#1b1b1b');
+    -ms-filter: "progid:DXImageTransform.Microsoft.gradient(startColorstr='#1c1c1c', endColorstr='#1b1b1b')";
+    background: linear-gradient(#1c1c1c, #1b1b1b);
+
+    border-bottom: 1px solid #222222;
+    }
+#myContent li:hover a
+{
+    color: #C4302B;
+    }

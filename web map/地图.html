@@ -1,0 +1,400 @@
+<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-CN">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=gb2312" />
+<link href="css/menu.css" rel="stylesheet" type="text/css" />
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<link rel="stylesheet" href="http://serverapi.arcgisonline.com/jsapi/arcgis/3.3/js/dojo/dijit/themes/claro/claro.css"/>
+<link rel="stylesheet" href="http://serverapi.arcgisonline.com/jsapi/arcgis/3.3/js/esri/css/esri.css"/>
+<script src="http://serverapi.arcgisonline.com/jsapi/arcgis/3.3/"type="text/javascript"></script>
+<script src="dojo/jsapi_vsdoc10_v33.js" type="text/javascript"></script>
+<script type="text/javascript">      var dojoConfig = { parseOnLoad: true };</script>
+<script type="text/javascript">
+    dojo.require("esri.map");
+    dojo.require("esri.dijit.Scalebar");
+    dojo.require("esri.dijit.OverviewMap");
+    dojo.require("esri.layers.FeatureLayer");
+    dojo.require("esri.tasks.geometry");
+    dojo.require("esri.toolbars.draw");
+    dojo.require("esri.tasks.query");
+    dojo.require("esri.dijit.Legend");
+    dojo.require("esri.symbol");
+    dojo.require("esri.dijit.Print");
+    var map, queryTask, query, symbol, highlightSymbol, tb, geometryService,printer;
+    function init() {
+		//bounds为地图显示范围
+        var bounds = new esri.geometry.Extent({
+            "xmin": 1.3272339420383621E7,
+            "ymin": 2990036.3423896804,
+            "xmax": 1.3273621604547586E7,
+            "ymax": 2991713.98501765,
+            "spatialReference": { wkid: 3395 }
+        });
+		//创建并添加地图
+        map = new esri.Map("map", { extent: bounds, logo: false, navigationMode: 'classic', nav: true });
+        var basemap = new esri.layers.ArcGISDynamicMapServiceLayer("http://localhost:6080/arcgis/rest/services/nongda/MapServer");
+        map.addLayer(basemap);
+        //设置弹出框填充样式
+        var fieldsSelectionSymbol = new esri.symbol.SimpleFillSymbol().setColor(new dojo.Color([255, 255, 0, 0.5]));
+        fieldsSelectionSymbol.setOutline(new esri.symbol.SimpleLineSymbol("dashdot", new dojo.Color([255, 0, 0]), 2));
+        //设置弹出框显示内容
+        var content = "${describe}";
+        var infoTemplate = new esri.InfoTemplate("${name}", content);
+		//给地图添加建筑物的图层实现点击建筑物能显示信息窗口
+        var l1 = new esri.layers.FeatureLayer("http://localhost:6080/arcgis/rest/services/nongda/MapServer/2", {
+            mode: esri.layers.FeatureLayer.ONDEMAND,
+            infoTemplate: infoTemplate,
+            outFields: ["*"]
+        });
+	    l1.setSelectionSymbol(fieldsSelectionSymbol);
+        map.addLayer(l1);
+		//打印相关的设置
+        printer = new esri.dijit.Print({
+            map: map,
+            templates: [{
+            label: "Map",
+            format: "PDF",
+            layout: "MAP_ONLY",
+            exportOptions: {
+               width: 640,
+               height: 720,
+               dpi: 96
+               }
+            }, {
+            label: "Layout",
+            format: "PDF",
+            layout: "A4 Portrait",
+            layoutOptions: {
+            titleText: "农大校园",
+            authorText: "第二小组",
+            copyrightText: "空间分析",
+            scalebarUnit: "Miles",
+               }
+            }],
+        url: "http://localhost:6080/arcgis/rest/services/Utilities/PrintingTools/GPServer/Export%20Web%20Map%20Task"
+        }, dojo.byId('print'));
+        printer.startup();
+        //比例尺及图例
+        var scalebar = new esri.dijit.Scalebar({ map: map,scalebarUnit:"metric" }, dojo.byId('scalebar'));
+        var legend = new esri.dijit.Legend({
+            map: map
+        }, "legendDiv");
+        document.getElementById("myContent").style.visibility = "hidden";
+        dojo.connect(l1, "onClick", mapclick);
+        dojo.connect(map, "onLoad", initToolbar);
+        legend.startup();
+
+    }
+	//地图的点击事件
+function mapclick(evt) {
+	//构建空间查询语句
+    queryTask = new esri.tasks.QueryTask("http://localhost:6080/arcgis/rest/services/nongda/MapServer/2");
+    query = new esri.tasks.Query();
+    query.returnGeometry = true;
+    query.spatialRelationship = esri.tasks.Query.SPATIAL_REL_INTERSECTS; //这是空间关系
+    query.outFields = ["*"];
+    query.geometry = evt.mapPoint;
+    query.outSpatialReference = { "wkid": 3395 };
+    queryTask.execute(query, setInfo);
+}
+function setInfo(feature) {
+        //将查询到的要素属性提取出来
+        var fs = feature.features;
+        var f = fs[0];
+        var att = f.attributes;
+        var str = "pictures/"+att.name+".jpg";
+        var u = encodeURI(str);
+		//下面完成右边的信息栏的显示
+        document.getElementById('pic').src = u;
+        dojo.byId('name').innerHTML = att.name;
+        dojo.byId('cl').innerHTML = att.class;
+        dojo.byId('describe').innerHTML = att.describe;
+        dojo.byId('evaluate').innerHTML = att.evaluate;
+        HLView(f);
+}
+   //下面是高亮显示的代码
+function HLView(feature) {
+    map.graphics.clear();
+    var rExtent = new esri.geometry.Extent();
+    var graphic = feature;
+    //设置高亮显示的样式，线与多边形需要用不同样式，因此要按情况设置
+    var highlightSymbol = new esri.symbol.SimpleFillSymbol(esri.symbol.SimpleFillSymbol.STYLE_SOLID, new esri.symbol.SimpleLineSymbol(esri.symbol.SimpleLineSymbol.STYLE_SOLID, new dojo.Color([255, 0, 0]), 2), new dojo.Color([125, 125, 125, 0.35]));
+    if (feature.geometry.type == "polyline") {
+        highlightSymbol = new esri.symbol.SimpleLineSymbol(esri.symbol.SimpleLineSymbol.STYLE_SOLID, new dojo.Color("#ff0000"), 4);
+       
+    }
+    
+    graphic.setSymbol(highlightSymbol);
+    map.graphics.add(graphic);
+	//下面是缩放至要素
+    rExtent = graphic.geometry.getExtent();
+    map.setExtent(rExtent);
+    
+}
+//下面是按属性搜索的代码
+function search(str,url) {
+//构建sql查询语句条件
+    var txt = "\"name\" LIKE '"+str+"%'";
+    if (txt != "") {
+        queryTask = new esri.tasks.QueryTask(url);
+        query = new esri.tasks.Query();
+        query.returnGeometry = true;
+        query.outFields = ["*"];
+        query.where = txt;
+        queryTask.execute(query, setInfo);
+    }
+}
+//下面是名称搜索的事件
+function btn_search() {
+	//获取输入框的内容
+    var str = document.getElementById('search_str').value;
+    if (str == null || str == "") {
+        alert("请输入查询内容");
+        return;
+    }
+    lyr = "http://localhost:6080/arcgis/rest/services/nongda/MapServer/2";
+    search(str,lyr);//调用上面的搜索事件
+}
+//下面是点击查询建筑
+function menu_search(v) {
+    lyr = "http://localhost:6080/arcgis/rest/services/nongda/MapServer/2";
+    var str = v.innerHTML;
+    search(str,lyr);
+    
+}
+//下面是点击查询小白路线
+function way_search(v) {
+    lyr = "http://localhost:6080/arcgis/rest/services/nongda/MapServer/1";
+    var str = v.innerHTML;
+    search(str, lyr);
+  
+}
+//下面是缩放至全图事件
+function zoomAll() {
+    var bounds = new esri.geometry.Extent({
+        "xmin": 1.3272339420383621E7,
+        "ymin": 2990036.3423896804,
+        "xmax": 1.3273621604547586E7,
+        "ymax": 2991713.98501765,
+        "spatialReference": { wkid: 3395 }
+    });
+    map.setExtent(bounds);
+
+}
+
+//下面是框选查询的事件
+function initToolbar() {
+    tb = new esri.toolbars.Draw(map);
+    dojo.connect(tb, "onDrawEnd", doQuery);
+}
+function doQuery(geometry) {
+
+    //把画的线添加到地图 addGraphics begin
+    var symbol = tb.fillSymbol;
+    map.graphics.add(new esri.Graphic(geometry, symbol));
+	//利用画的矩形做空间查询
+    queryTask = new esri.tasks.QueryTask("http://localhost:6080/arcgis/rest/services/nongda/MapServer/2");
+    query = new esri.tasks.Query();
+    query.spatialRelationship = esri.tasks.Query.SPATIAL_REL_INTERSECTS;
+    query.outFields = ["*"];
+    query.returnGeometry = true;
+    query.outSpatialReference = { "wkid": 3395 };
+    //query begin
+    query.geometry = geometry;
+    queryTask.execute(query, showResults);
+    
+    //query end
+
+
+}
+//下面是对空间查询的结果做处理，提取出结果要素的名称，构建弹出框
+function showResults(featureSet) {
+    var resultContent = "<ul>";
+    var features = featureSet.features;
+    for (var i = 0; i < features.length; i++) {
+
+        feature = features[i];
+        attributes = feature.attributes;
+
+        resultContent = resultContent + "<li><a href=\"#\"; onclick=\"menu_search(this);"+"return false;\">" + attributes.name;
+        resultContent = resultContent + "</a></li>"
+    }
+    resultContent = resultContent + "<li>";
+    resultContent = resultContent + "<a href=\"#\"; onclick=\"list_hidden();"+"return false;\">关闭";
+    resultContent = resultContent + "</a></li>"
+    resultContent = resultContent + "</ul>";
+    document.getElementById("myContent").style.visibility = "visible";
+    dojo.byId("myContent").innerHTML = resultContent;
+    map.graphics.clear();
+    tb.deactivate();
+}
+//这是弹出框的关闭事件
+function list_hidden() {
+    document.getElementById("myContent").style.visibility = "hidden";
+
+}
+
+
+dojo.addOnLoad(init); 
+
+</script>
+
+</head>
+<center>
+<body class="claro">
+<div id="head"></div>
+<div id="menu">
+
+	<ul class="menu">
+		
+		<li><a href="#">分类查询</a>
+			<ul class="submenu">
+				<li><a href="#">餐饮区</a>
+                <ul class="tmenu">
+				<li><a href="#"; onClick="menu_search(this);return false;">北区食堂</a></li>
+				<li><a href="#"; onClick="menu_search(this);return false;">八九十食堂</a></li>
+				<li><a href="#"; onClick="menu_search(this);return false;">十一十二十三食堂</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">青年实验餐厅</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">教工食堂</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">口语餐厅</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">昌融学生街</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">爱购</a></li>
+				</ul>
+				</li>
+				<li><a href="#">运动区</a>
+                <ul class="tmenu">
+				<li><a href="#"; onClick="menu_search(this);return false;">北区运动场</a></li>
+				<li><a href="#"; onClick="menu_search(this);return false;">北区篮球场</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">下安田径场</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">下安篮球场</a></li>
+				<li><a href="#"; onClick="menu_search(this);return false;">体育馆</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">游泳馆</a></li>
+				</ul>
+                </li>
+				<li><a href="#">教学区</a>
+                <ul class="tmenu">
+				<li><a href="#"; onClick="menu_search(this);return false;">博学楼</a></li>
+				<li><a href="#"; onClick="menu_search(this);return false;">明德楼</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">明北附</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">明南附</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">创新楼</a></li>
+				<li><a href="#"; onClick="menu_search(this);return false;">禧强楼</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">宝铃楼</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">田家炳楼</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">诚智楼</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">下安实验楼</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">成教楼</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">作物科学学院</a></li>
+				<li><a href="#"; onClick="menu_search(this);return false;">园艺楼</a></li>
+				<li><a href="#"; onClick="menu_search(this);return false;">生物楼</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">机电楼</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">经管楼、旅游学院办公楼</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">大阶梯</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">计信院办</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">映辉楼</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">校团委</a></li>
+				<li><a href="#"; onClick="menu_search(this);return false;">校红十</a></li>			
+                <li><a href="#"; onClick="menu_search(this);return false;">新日鲜科研大楼</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">益虫研究所</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">作物科学楼</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">保鲜楼</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">园艺科技楼</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">英龙I</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">食品与安全学院</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">生科楼</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">圣农楼（动科院）</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">甘蔗田</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">实验田</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">海峡两岸农业技术合作中心</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">国家甘蔗产业技术研发中心</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">海峡两岸现代林业研究中心</a></li>
+                </ul>
+                </li>
+				<li><a href="#">居住区</a>
+                <ul class="tmenu">
+				<li><a href="#"; onClick="menu_search(this);return false;">北一二宿舍</a></li>
+				<li><a href="#"; onClick="menu_search(this);return false;">北三四五宿舍</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">北八宿舍</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">北九宿舍</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">南一宿舍</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">南二宿舍</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">南三宿舍</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">南四宿舍</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">南九宿舍</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">桃四宿舍</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">桃五宿舍</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">桃六宿舍</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">桃七宿舍</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">桃八宿舍</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">研究生宿舍</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">昌融公寓</a></li>
+				<li><a href="#"; onClick="menu_search(this);return false;">华庭大酒店</a></li>
+                </ul>
+                </li>
+				<li><a href="#">观赏区</a>
+                <ul class="tmenu">
+				<li><a href="#"; onClick="menu_search(this);return false;">观音湖</a></li>
+				<li><a href="#"; onClick="menu_search(this);return false;">湿地公园</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">湖心岛</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">小湖</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">花田</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">春晖桥</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">中华园</a></li>
+                </ul>
+                </li>
+				<li><a href="#">公共区</a>
+                <ul class="tmenu">
+				<li><a href="#"; onClick="menu_search(this);return false;">李常盛图书馆</a></li>
+				<li><a href="#"; onClick="menu_search(this);return false;">逸夫图书馆</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">拓荒广场</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">大学生活动中心</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">校医院</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">派出所</a></li>
+                <li><a href="#"; onClick="menu_search(this);return false;">宠物医院</a></li>
+                </ul>
+                </li>
+			</ul>
+		</li>
+		<li class="active"><a href="#s2">小白线路查询</a>
+			<ul class="submenu">
+				<li><a href="#"; onClick="way_search(this);return false;">一号线</a></li>
+				<li><a href="#"; onClick="way_search(this);return false;">二号线</a></li>
+				<li><a href="#"; onClick="way_search(this);return false;">三号线</a></li>
+				<li><a href="#"; onClick="way_search(this);return false;">四号线</a></li>
+				<li><a href="#"; onClick="way_search(this);return false;">五号线</a></li>
+                <li><a href="#"; onClick="way_search(this);return false;">六号线</a></li>
+			</ul>
+		</li>
+		<li><a href="#">其他功能</a>
+			<ul class="submenu">
+				<li><a href="#" onClick="zoomAll();return false;">查看全图</a></li>
+				<li><a href="#" onClick="tb.activate(esri.toolbars.Draw.EXTENT);return false;">框选查询</a></li>
+				<li><a href="http://jwgl.fafu.edu.cn/%28wvlgo155ickwkouxb50rwa55%29/default2.aspx"; target="_blank">教务管理系统</a></li>
+				<li><a href="http://www.fafu.edu.cn/"; target="_blank">农大主页</a></li>
+			</ul>
+		</li>
+	</ul>
+    <div id="print"></div>
+    <div id="search">
+    <input type="text"; id="search_str"; />
+    <input type="button"; value="搜索"; onclick="btn_search()" />
+    </div>
+</div>
+<div id="middle">
+<div id="map"><div id="scalebar"></div></div>
+<div id="info">
+<div id="img"><img id="pic" ; src="pictures/t.jpg"/></div>
+<div id="text"><b>名称：</b><span id="name"></span><br /><b>分类：</b><span id="cl"></span><br /><b>描述：</b><span id="describe"></span><br /><b>点评：</b><span id="evaluate"></span>
+</div>
+</div>
+</div>
+<div id="last"><div id="mapof"><p>福建农林大学 2012级空间信息与数字技术</p><p>空间分析第二小组</p></div></div>
+<div id="weather"><iframe src="http://cache.xixik.com.cn/3/fuzhou/" width="160" height="90" frameborder="0" marginwidth="0" marginheight="0" scrolling="no"></iframe>
+</div>
+<div id="legendDiv"></div>
+<div id="gotoTop"><a href="#">↑TOP</a></div>
+<div id="myContent"></div>
+</body>
+</center>
+</html>
+
+
